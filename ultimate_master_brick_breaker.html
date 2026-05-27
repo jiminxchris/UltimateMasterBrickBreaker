@@ -477,10 +477,47 @@
         // 캔버스 클릭 시에도 오디오 컨텍스트를 활성화하여 사용자 인터랙션 연결
         canvas.addEventListener("click", initAudio);
 
+        // --- 글로벌 명예의 전당 (API 연동) ---
+        // TODO: JSONBin.io 등 무료 DB의 URL과 API KEY를 입력하세요. (입력 안 하면 기존처럼 기기에만 저장됨)
+        const API_URL = "https://api.jsonbin.io/v3/b/여기에_BIN_ID_입력";
+        const API_KEY = "여기에_API_KEY_입력";
+
+        async function fetchRankings() {
+            try {
+                if (API_URL.includes("여기에")) return JSON.parse(localStorage.getItem('brick_rank') || "[]");
+                
+                const response = await fetch(API_URL, { headers: { 'X-Master-Key': API_KEY } });
+                const data = await response.json();
+                return data.record.rank || [];
+            } catch (e) {
+                console.error("랭킹 로드 실패:", e);
+                return JSON.parse(localStorage.getItem('brick_rank') || "[]");
+            }
+        }
+
+        async function saveRankings(newRank) {
+            try {
+                if (API_URL.includes("여기에")) {
+                    localStorage.setItem('brick_rank', JSON.stringify(newRank));
+                    return;
+                }
+                
+                await fetch(API_URL, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                    body: JSON.stringify({ rank: newRank })
+                });
+            } catch (e) {
+                console.error("랭킹 저장 실패:", e);
+            }
+        }
+
         // --- 명예의 전당 랭킹 출력 ---
-        function renderRanking(containerId) {
+        async function renderRanking(containerId) {
             const container = document.getElementById(containerId);
-            const rank = JSON.parse(localStorage.getItem('brick_rank') || "[]");
+            container.innerHTML = `<li style="text-align:center; color:#64748b; padding:10px 0;">글로벌 랭킹 불러오는 중...</li>`;
+            
+            const rank = await fetchRankings();
             
             let html = "";
             if (rank.length === 0) {
@@ -563,35 +600,36 @@
                 document.getElementById('best').innerText = best;
             }
 
-            // 랭킹 목록 로드 및 가공
-            let rank = JSON.parse(localStorage.getItem('brick_rank') || "[]");
-            rank.push({ name, score });
-            rank.sort((a, b) => b.score - a.score);
-            rank = rank.slice(0, 5); // 상위 5명
-            localStorage.setItem('brick_rank', JSON.stringify(rank));
-
             // 모달 표시 데이터 가공
             document.getElementById('finalScore').innerText = score;
-            
-            // 오버 랭킹뷰 빌드
-            let overRankHtml = `
-                <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
-                <ul class="ranking-list">
-            `;
-            rank.forEach((r, i) => {
-                const isMyCurrent = (r.name === name && r.score === score);
-                overRankHtml += `
-                    <li class="ranking-item" style="${isMyCurrent ? 'border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.1);' : ''}">
-                        <span>${i + 1}. ${r.name} ${isMyCurrent ? '(MY)' : ''}</span>
-                        <span style="font-weight:bold; color:#f59e0b;">${r.score}점</span>
-                    </li>
-                `;
-            });
-            overRankHtml += '</ul>';
-            document.getElementById('over-ranking-area').innerHTML = overRankHtml;
-
-            // 오버레이 표출
+            document.getElementById('over-ranking-area').innerHTML = "<div style='text-align:center; color:#64748b; margin-top:10px;'>글로벌 랭킹 업데이트 중...</div>";
             document.getElementById('overModal').style.display = 'flex';
+
+            // 비동기로 글로벌 랭킹 로드, 업데이트 및 저장
+            (async () => {
+                let rank = await fetchRankings();
+                rank.push({ name, score });
+                rank.sort((a, b) => b.score - a.score);
+                rank = rank.slice(0, 5); // 상위 5명
+                await saveRankings(rank);
+
+                // 오버 랭킹뷰 빌드
+                let overRankHtml = `
+                    <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
+                    <ul class="ranking-list">
+                `;
+                rank.forEach((r, i) => {
+                    const isMyCurrent = (r.name === name && r.score === score);
+                    overRankHtml += `
+                        <li class="ranking-item" style="${isMyCurrent ? 'border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.1);' : ''}">
+                            <span>${i + 1}. ${r.name} ${isMyCurrent ? '(MY)' : ''}</span>
+                            <span style="font-weight:bold; color:#f59e0b;">${r.score}점</span>
+                        </li>
+                    `;
+                });
+                overRankHtml += '</ul>';
+                document.getElementById('over-ranking-area').innerHTML = overRankHtml;
+            })();
         }
 
         // --- 핵심 프레임 루프 (렌더링 & 연산) ---
