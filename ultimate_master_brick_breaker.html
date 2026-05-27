@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Master Brick Breaker</title>
+    <style>
+        /* 글로벌 미래지향적 다크 네온 테마 스타일링 */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #0c0f24 0%, #05050f 100%);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        /* 메인 컨테이너 */
+        #game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 380px;
+            padding: 10px;
+        }
+
+        /* 네온 UI 헤더 */
+        #ui-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            padding: 10px 20px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(59, 130, 246, 0.2);
+            font-weight: bold;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(8px);
+        }
+
+        .ui-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .ui-label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        .ui-value {
+            font-size: 1.1rem;
+            color: #3b82f6;
+            text-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+        }
+        
+        .ui-value.accent {
+            color: #f59e0b;
+            text-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+        }
+
+        /* 게임 캔버스 */
+        canvas {
+            background: #090d1a;
+            border: 3px solid #3b82f6;
+            border-radius: 16px;
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.3);
+            width: 100%;
+            height: auto;
+            max-width: 360px;
+            aspect-ratio: 360 / 500;
+        }
+
+        /* 오버레이 모달 (시작, 게임오버) */
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(7, 10, 25, 0.95);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 20px;
+            padding: 25px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(to right, #3b82f6, #60a5fa, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+            font-weight: 900;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            margin: 0 0 15px 0;
+            color: #ef4444;
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+        }
+
+        /* 입력 폼 */
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background: #0f172a;
+            color: #fff;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+
+        /* 세련된 버튼 */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* 랭킹 영역 */
+        #ranking-area {
+            margin-top: 20px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+            padding-top: 15px;
+            text-align: left;
+        }
+
+        .ranking-title {
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #f59e0b;
+            text-align: center;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.85rem;
+        }
+
+        .ranking-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .ranking-item.top-record {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        /* 하단 사운드 온오프 힌트 등 안내 */
+        #sound-hint {
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: #64748b;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- 상단 UI 헤더 -->
+        <div id="ui-header">
+            <div class="ui-item">
+                <span class="ui-label">Round</span>
+                <span id="round" class="ui-value">1</span>
+            </div>
+            <div class="ui-item">
+                <span class="ui-label">Score</span>
+                <span id="score" class="ui-value">0</span>
+            </div>
+            <div class="ui-item">
+                <span class="ui-label">Best Score</span>
+                <span id="best" class="ui-value accent">0</span>
+            </div>
+        </div>
+
+        <!-- 게임용 캔버스 (모바일 터치 뷰포트 맞춤) -->
+        <canvas id="gameCanvas" width="360" height="500"></canvas>
+
+        <!-- 시작 모달 -->
+        <div id="startModal" class="modal">
+            <div class="modal-content">
+                <h1>SUPER BRICK BREAKER</h1>
+                <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">모바일 완벽 충돌 보정 & 점진 난이도 시스템</p>
+                <input type="text" id="nameInput" placeholder="플레이어 이름 입력" maxlength="8">
+                <button class="btn" onclick="handleStartGame()">게임 시작</button>
+                
+                <div id="ranking-area">
+                    <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
+                    <ul id="ranking-list" class="ranking-list">
+                        <!-- 동적 삽입 -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 게임오버 모달 -->
+        <div id="overModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>GAME OVER</h2>
+                <p style="font-size:0.9rem; color:#94a3b8; margin-bottom:5px;">최종 점수</p>
+                <p id="finalScore" style="font-size:2rem; font-weight:bold; color:#ef4444; margin:0 0 15px 0; text-shadow:0 0 10px rgba(239, 68, 68, 0.4);">0</p>
+                
+                <button class="btn" onclick="handleRestartGame()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);">다시 플레이</button>
+                <button class="btn" onclick="handleShowMenu()" style="background: transparent; border: 1px solid #475569; box-shadow: none; margin-top: 8px;">이름 변경 / 메뉴</button>
+                
+                <div id="over-ranking-area" style="margin-top: 15px; text-align: left;">
+                    <!-- 동적 삽입 -->
+                </div>
+            </div>
+        </div>
+
+        <div id="sound-hint">※ 화면 터치/조작 시 사운드 효과가 함께 출력됩니다.</div>
+    </div>
+
+    <script>
+        // --- 캔버스 설정 ---
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // --- 오디오 신디사이저 (Web Audio API 사용) ---
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            // 오디오 컨텍스트 활성화 상태 유지
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'paddle') {
+                    // 패들 튕김음 (부드러운 저음 상승)
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(320, audioCtx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+                } else if (type === 'brick') {
+                    // 블록 타격음
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(380, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(680, audioCtx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+                } else if (type === 'break') {
+                    // 완전히 파괴되었을 때의 경쾌한 소리
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(520, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'gameover') {
+                    // 게임오버 시 우울한 소리
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(55, audioCtx.currentTime + 0.8);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+                } else if (type === 'levelup') {
+                    // 라운드 클리어음
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1);
+                    osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                }
+            } catch (e) {
+                console.log("Audio error ignored:", e);
+            }
+        }
+
+        // --- 핵심 게임 상태 전역 변수 ---
+        let score = 0;
+        let round = 1;
+        let best = localStorage.getItem('brick_best') || 0;
+        let name = localStorage.getItem('brick_name') || "";
+        let isRunning = false;
+        
+        let paddle = { x: 140, w: 80, h: 12, targetX: 140 };
+        let ball = { x: 180, y: 350, dx: 3, dy: -3, r: 7, baseSpeed: 5 };
+        let bricks = [];
+        let stars = [];
+        let particles = [];
+
+        // 화면 로드 즉시 최고 점수 렌더링
+        document.getElementById('best').innerText = best;
+        document.getElementById('nameInput').value = name;
+
+        // --- 배경 별빛 시뮬레이션 ---
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 40; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 1.5 + 0.5,
+                    speed: Math.random() * 0.5 + 0.1
+                });
+            }
+        }
+
+        // --- 파괴 파티클 생성 ---
+        function spawnParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: (Math.random() - 0.5) * 5,
+                    size: Math.random() * 3 + 1,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.02,
+                    color: color
+                });
+            }
+        }
+
+        // --- 벽돌 생성 로직 (라운드별 점진적 난이도 곡선) ---
+        function initBricks() {
+            bricks = [];
+            let rows = Math.min(3 + Math.floor(round / 2), 7); // 라운드별 점진적 줄 추가
+            let cols = 6;
+            let bW = 48;
+            let bH = 18;
+            let padding = 8;
+            let offsetTop = 45;
+            let offsetLeft = 14;
+
+            for (let c = 0; c < cols; c++) {
+                bricks[c] = [];
+                for (let r = 0; r < rows; r++) {
+                    // 라운드에 따른 블록 최대 체력 조절 (라운드 1은 HP 1~2만 발생)
+                    let maxHp = Math.min(round, 5);
+                    let hp = Math.floor(Math.random() * maxHp) + 1;
+                    
+                    // 파괴 불가능 블록 등장 확률 (1라운드는 0%, 라운드가 갈수록 최대 12%까지 점진적 상승)
+                    let isInd = (round > 1 && Math.random() < Math.min(0.015 * round, 0.12));
+                    
+                    bricks[c][r] = {
+                        x: c * (bW + padding) + offsetLeft,
+                        y: r * (bH + padding) + offsetTop,
+                        w: bW,
+                        h: bH,
+                        hp: isInd ? 999 : hp,
+                        isInd: isInd
+                    };
+                }
+            }
+        }
+
+        // --- 공 초기화 및 방향 설정 ---
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height - 110;
+            
+            // 라운드에 따른 점진적 속도 상승 (최소 속도 보장)
+            let speed = ball.baseSpeed + (round * 0.35);
+            
+            // 너무 가파르거나 너무 편평하지 않은 상방 각도 계산
+            let angle = (Math.random() * 0.3 + 0.35) * Math.PI; 
+            ball.dx = speed * Math.cos(angle) * (Math.random() > 0.5 ? 1 : -1);
+            ball.dy = -speed * Math.sin(angle);
+        }
+
+        // --- 조작감 개선 (터치 및 마우스 완벽 대응) ---
+        function updatePaddlePosition() {
+            // 부드러운 위치 추적 및 모바일 슬라이드 보정
+            paddle.x += (paddle.targetX - paddle.x) * 0.45;
+            paddle.x = Math.max(0, Math.min(paddle.x, canvas.width - paddle.w));
+        }
+
+        function handleInput(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            // 화면 배율에 대응하는 스케일 보정값 계산
+            const scaleX = canvas.width / rect.width;
+            const absoluteX = (clientX - rect.left) * scaleX;
+            paddle.targetX = absoluteX - paddle.w / 2;
+        }
+
+        canvas.addEventListener("touchmove", e => {
+            initAudio();
+            handleInput(e.touches[0].clientX);
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener("mousemove", e => {
+            handleInput(e.clientX);
+        });
+
+        // 캔버스 클릭 시에도 오디오 컨텍스트를 활성화하여 사용자 인터랙션 연결
+        canvas.addEventListener("click", initAudio);
+
+        // --- 명예의 전당 랭킹 출력 ---
+        function renderRanking(containerId) {
+            const container = document.getElementById(containerId);
+            const rank = JSON.parse(localStorage.getItem('brick_rank') || "[]");
+            
+            let html = "";
+            if (rank.length === 0) {
+                html = `<li style="text-align:center; color:#64748b; padding:10px 0;">첫 도전자가 되어보세요!</li>`;
+            } else {
+                rank.forEach((r, i) => {
+                    const isTop = i === 0;
+                    html += `
+                        <li class="ranking-item ${isTop ? 'top-record' : ''}">
+                            <span>${i + 1}. ${r.name}</span>
+                            <span style="font-weight:bold; color: ${isTop ? '#f59e0b' : '#3b82f6'};">${r.score}점</span>
+                        </li>
+                    `;
+                });
+            }
+            container.innerHTML = html;
+        }
+
+        // --- 모달 제어 시스템 ---
+        function handleStartGame() {
+            initAudio();
+            const inputName = document.getElementById('nameInput').value.trim();
+            name = inputName || "익명";
+            localStorage.setItem('brick_name', name);
+            
+            document.getElementById('startModal').style.display = 'none';
+            document.getElementById('overModal').style.display = 'none';
+
+            score = 0;
+            round = 1;
+            document.getElementById('score').innerText = score;
+            document.getElementById('round').innerText = round;
+
+            initStars();
+            initBricks();
+            resetBall();
+            
+            // 패들 중심 정렬
+            paddle.x = canvas.width / 2 - paddle.w / 2;
+            paddle.targetX = paddle.x;
+            particles = [];
+            
+            isRunning = true;
+            update();
+        }
+
+        function handleRestartGame() {
+            initAudio();
+            document.getElementById('overModal').style.display = 'none';
+            
+            score = 0;
+            round = 1;
+            document.getElementById('score').innerText = score;
+            document.getElementById('round').innerText = round;
+
+            initBricks();
+            resetBall();
+            paddle.x = canvas.width / 2 - paddle.w / 2;
+            paddle.targetX = paddle.x;
+            particles = [];
+
+            isRunning = true;
+            update();
+        }
+
+        function handleShowMenu() {
+            document.getElementById('overModal').style.display = 'none';
+            document.getElementById('startModal').style.display = 'flex';
+            renderRanking('ranking-list');
+        }
+
+        function triggerGameOver() {
+            isRunning = false;
+            playSound('gameover');
+
+            // 로컬 최고 기록 검증 및 저장
+            if (score > best) {
+                best = score;
+                localStorage.setItem('brick_best', best);
+                document.getElementById('best').innerText = best;
+            }
+
+            // 랭킹 목록 로드 및 가공
+            let rank = JSON.parse(localStorage.getItem('brick_rank') || "[]");
+            rank.push({ name, score });
+            rank.sort((a, b) => b.score - a.score);
+            rank = rank.slice(0, 5); // 상위 5명
+            localStorage.setItem('brick_rank', JSON.stringify(rank));
+
+            // 모달 표시 데이터 가공
+            document.getElementById('finalScore').innerText = score;
+            
+            // 오버 랭킹뷰 빌드
+            let overRankHtml = `
+                <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
+                <ul class="ranking-list">
+            `;
+            rank.forEach((r, i) => {
+                const isMyCurrent = (r.name === name && r.score === score);
+                overRankHtml += `
+                    <li class="ranking-item" style="${isMyCurrent ? 'border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.1);' : ''}">
+                        <span>${i + 1}. ${r.name} ${isMyCurrent ? '(MY)' : ''}</span>
+                        <span style="font-weight:bold; color:#f59e0b;">${r.score}점</span>
+                    </li>
+                `;
+            });
+            overRankHtml += '</ul>';
+            document.getElementById('over-ranking-area').innerHTML = overRankHtml;
+
+            // 오버레이 표출
+            document.getElementById('overModal').style.display = 'flex';
+        }
+
+        // --- 핵심 프레임 루프 (렌더링 & 연산) ---
+        function update() {
+            if (!isRunning) return;
+
+            // 1. 캔버스 리셋 및 배경 별빛 렌더링
+            ctx.fillStyle = "rgba(9, 13, 26, 0.9)"; // 미세 잔상용 알파
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. 우주 배경 움직임 제어
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            stars.forEach(s => {
+                s.y += s.speed;
+                if (s.y > canvas.height) {
+                    s.y = 0;
+                    s.x = Math.random() * canvas.width;
+                }
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 3. 브레이크 파티클 애니메이션
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(index, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+
+            // 4. 패들 위치 갱신 & 그리기 (둥근 네온 디자인)
+            updatePaddlePosition();
+            let padGrad = ctx.createLinearGradient(paddle.x, canvas.height - 40, paddle.x, canvas.height - 40 + paddle.h);
+            padGrad.addColorStop(0, '#60a5fa');
+            padGrad.addColorStop(1, '#1d4ed8');
+            ctx.fillStyle = padGrad;
+            
+            // 둥근 패들 렌더링
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, canvas.height - 40, paddle.w, paddle.h, 6);
+            ctx.fill();
+            
+            // 패들 광원 테두리
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.stroke();
+
+            // 5. 공 좌표 갱신
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // 좌우 벽 충돌 검증 및 정확한 튕김 보정
+            if (ball.x - ball.r < 0) {
+                ball.dx = Math.abs(ball.dx);
+                ball.x = ball.r;
+                playSound('brick');
+            } else if (ball.x + ball.r > canvas.width) {
+                ball.dx = -Math.abs(ball.dx);
+                ball.x = canvas.width - ball.r;
+                playSound('brick');
+            }
+
+            // 천장 충돌 보정
+            if (ball.y - ball.r < 0) {
+                ball.dy = Math.abs(ball.dy);
+                ball.y = ball.r;
+                playSound('brick');
+            }
+
+            // 바닥 아웃 판정 (무조건 아웃 조건 충족)
+            if (ball.y + ball.r > canvas.height) {
+                triggerGameOver();
+                return;
+            }
+
+            // 패들 상단 튕김 물리 판정 (끼임 해결 완료)
+            let paddleY = canvas.height - 40;
+            if (ball.y + ball.r > paddleY && ball.y - ball.r < paddleY + paddle.h) {
+                if (ball.x + ball.r > paddle.x && ball.x - ball.r < paddle.x + paddle.w) {
+                    if (ball.dy > 0) { // 하강할 때만 패들에 튕김
+                        ball.dy = -Math.abs(ball.dy);
+                        ball.y = paddleY - ball.r; // 보정 좌표
+                        
+                        // 공이 부딪힌 위치에 따라 발사 각도 차등 조절
+                        let hitPos = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+                        let curSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                        ball.dx = curSpeed * hitPos * 0.8;
+                        
+                        playSound('paddle');
+                    }
+                }
+            }
+
+            // 6. 벽돌 충돌 검출 루프 (끼임 방지 최소 중첩 보정 로직)
+            let activeBricks = 0;
+            bricks.forEach(col => col.forEach(b => {
+                if (b.hp > 0) {
+                    if (!b.isInd) activeBricks++;
+
+                    // 공과 벽돌의 충돌 판정 바운더리
+                    if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w &&
+                        ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+                        
+                        let baseColor = b.isInd ? '#64748b' : (b.hp >= 5 ? '#a855f7' : b.hp >= 4 ? '#ec4899' : b.hp >= 3 ? '#ef4444' : b.hp >= 2 ? '#f59e0b' : '#10b981');
+                        
+                        if (!b.isInd) {
+                            b.hp--;
+                            score += 10;
+                            document.getElementById('score').innerText = score;
+                            if (score > best) {
+                                best = score;
+                                document.getElementById('best').innerText = best;
+                            }
+                            
+                            if (b.hp <= 0) {
+                                playSound('break');
+                                spawnParticles(b.x + b.w/2, b.y + b.h/2, baseColor);
+                            } else {
+                                playSound('brick');
+                            }
+                        } else {
+                            playSound('brick'); // 단단한 블록은 튕김 소리만
+                        }
+
+                        // 완벽한 튕김 처리를 위한 축별 최소 겹침 해상도 계산 (축 정렬 알고리즘)
+                        let overlapLeft = (ball.x + ball.r) - b.x;
+                        let overlapRight = (b.x + b.w) - (ball.x - ball.r);
+                        let overlapTop = (ball.y + ball.r) - b.y;
+                        let overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+
+                        let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+                        if (minOverlap === overlapLeft) {
+                            ball.dx = -Math.abs(ball.dx);
+                            ball.x = b.x - ball.r;
+                        } else if (minOverlap === overlapRight) {
+                            ball.dx = Math.abs(ball.dx);
+                            ball.x = b.x + b.w + ball.r;
+                        } else if (minOverlap === overlapTop) {
+                            ball.dy = -Math.abs(ball.dy);
+                            ball.y = b.y - ball.r;
+                        } else if (minOverlap === overlapBottom) {
+                            ball.dy = Math.abs(ball.dy);
+                            ball.y = b.y + b.h + ball.r;
+                        }
+                    }
+
+                    // 벽돌 그라데이션 및 디자인 드로잉
+                    let bGrad = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+                    if (b.isInd) {
+                        bGrad.addColorStop(0, '#94a3b8');
+                        bGrad.addColorStop(1, '#475569');
+                    } else {
+                        if (b.hp >= 5) { bGrad.addColorStop(0, '#c084fc'); bGrad.addColorStop(1, '#7e22ce'); }
+                        else if (b.hp === 4) { bGrad.addColorStop(0, '#f472b6'); bGrad.addColorStop(1, '#be185d'); }
+                        else if (b.hp === 3) { bGrad.addColorStop(0, '#f87171'); bGrad.addColorStop(1, '#b91c1c'); }
+                        else if (b.hp === 2) { bGrad.addColorStop(0, '#fbbf24'); bGrad.addColorStop(1, '#b45309'); }
+                        else { bGrad.addColorStop(0, '#34d399'); bGrad.addColorStop(1, '#047857'); }
+                    }
+
+                    ctx.fillStyle = bGrad;
+                    // 부드러운 각진 사각형 드로잉
+                    ctx.beginPath();
+                    ctx.roundRect(b.x, b.y, b.w, b.h, 3);
+                    ctx.fill();
+
+                    // 블록 미세 그림자 입체 테두리
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+                    ctx.stroke();
+
+                    // 내구도 텍스트 그리기
+                    if (!b.isInd) {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 11px sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(b.hp, b.x + b.w / 2, b.y + b.h / 2 + 1);
+                    }
+                }
+            }));
+
+            // 모든 파괴 가능 블록 클리어 -> 다음 라운드로 빌드
+            if (activeBricks === 0) {
+                round++;
+                playSound('levelup');
+                document.getElementById('round').innerText = round;
+                resetBall();
+                initBricks();
+            }
+
+            // 7. 공 렌더링 (광원 및 섀도우 연출 효과)
+            ctx.save();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#60a5fa";
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            requestAnimationFrame(update);
+        }
+
+        // 초기 시작 페이지 랭킹 세팅
+        window.addEventListener('DOMContentLoaded', () => {
+            renderRanking('ranking-list');
+        });
+    </script>
+</body>
+</html>
