@@ -215,23 +215,25 @@
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
 
-        /* 하단 사운드 온오프 힌트 등 안내 */
-        #sound-hint {
-            margin-top: 8px;
-            font-size: 0.75rem;
-            color: #64748b;
+        /* 하단 사운드 힌트 및 제작자 정보 */
+        #footer-info {
+            margin-top: 15px;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
         }
 
-        /* 제작자 텍스트 스타일 */
-        #creator-footer {
-            margin-top: 15px;
+        #sound-hint {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        #creator-tag {
             font-size: 0.85rem;
-            color: #94a3b8;
-            text-align: center;
             font-weight: bold;
-            text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
-            letter-spacing: 1px;
+            color: #94a3b8;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -263,10 +265,10 @@
                 <h1>SUPER BRICK BREAKER</h1>
                 <p style="font-size:0.85rem; color:#94a3b8; margin-bottom:10px;">모바일 완벽 충돌 보정 & 점진 난이도 시스템</p>
                 <input type="text" id="nameInput" placeholder="플레이어 이름 입력" maxlength="8">
-                <button class="btn" onclick="handleStartGame()">게임 시작</button>
+                <button class="btn" id="startBtn" onclick="handleStartGame()">게임 시작</button>
                 
                 <div id="ranking-area">
-                    <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
+                    <div class="ranking-title">🏆 글로벌 명예의 전당 (Top 5)</div>
                     <ul id="ranking-list" class="ranking-list">
                         <!-- 동적 삽입 -->
                     </ul>
@@ -281,7 +283,7 @@
                 <p style="font-size:0.9rem; color:#94a3b8; margin-bottom:5px;">최종 점수</p>
                 <p id="finalScore" style="font-size:2rem; font-weight:bold; color:#ef4444; margin:0 0 15px 0; text-shadow:0 0 10px rgba(239, 68, 68, 0.4);">0</p>
                 
-                <button class="btn" onclick="handleRestartGame()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);">다시 플레이</button>
+                <button class="btn" id="restartBtn" onclick="handleRestartGame()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);">다시 플레이</button>
                 <button class="btn" onclick="handleShowMenu()" style="background: transparent; border: 1px solid #475569; box-shadow: none; margin-top: 8px;">이름 변경 / 메뉴</button>
                 
                 <div id="over-ranking-area" style="margin-top: 15px; text-align: left;">
@@ -290,14 +292,22 @@
             </div>
         </div>
 
-        <div id="sound-hint">※ 화면 터치/조작 시 사운드 효과가 함께 출력됩니다.</div>
-        <div id="creator-footer">만든이: 김주환</div>
+        <!-- 하단 안내 및 제작자 태그 -->
+        <div id="footer-info">
+            <div id="sound-hint">※ 화면 터치/조작 시 사운드 효과가 함께 출력됩니다.</div>
+            <div id="creator-tag">김주환이 만들었음</div>
+        </div>
     </div>
 
     <script>
         // --- 캔버스 설정 ---
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+
+        // --- JSONBin 글로벌 랭킹 설정 ---
+        // 아래 값들은 파이썬(Streamlit)의 st.secrets에 의해 렌더링 시 자동으로 치환됩니다.
+        const binId = "__BIN_ID__"; 
+        const apiKey = "__API_KEY__";
 
         // --- 오디오 신디사이저 (Web Audio API 사용) ---
         let audioCtx = null;
@@ -486,64 +496,79 @@
             handleInput(e.clientX);
         });
 
-        // 캔버스 클릭 시에도 오디오 컨텍스트를 활성화하여 사용자 인터랙션 연결
         canvas.addEventListener("click", initAudio);
 
-        // --- 글로벌 명예의 전당 (API 연동) ---
-        // TODO: JSONBin.io 등 무료 DB의 URL과 API KEY를 입력하세요. (입력 안 하면 기존처럼 기기에만 저장됨)
-        const API_URL = "https://api.jsonbin.io/v3/b/여기에_BIN_ID_입력";
-        const API_KEY = "여기에_API_KEY_입력";
-
-        async function fetchRankings() {
+        // --- 글로벌 명예의 전당 (JSONBin API) 비동기 처리 함수 ---
+        async function fetchRanking(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<li style="text-align:center; color:#64748b; padding:10px 0;">글로벌 랭킹 로딩 중...⏳</li>`;
+            
             try {
-                if (API_URL.includes("여기에")) return JSON.parse(localStorage.getItem('brick_rank') || "[]");
+                // 키가 셋팅되지 않은 로컬 환경일 경우 기존 방식 유지
+                if (binId.includes("__BIN_ID__")) {
+                    throw new Error("API Key not set"); 
+                }
+
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+                    headers: { 'X-Master-Key': apiKey }
+                });
                 
-                const response = await fetch(API_URL, { headers: { 'X-Master-Key': API_KEY } });
+                if (!response.ok) throw new Error('Network response was not ok');
                 const data = await response.json();
-                return data.record.rank || [];
-            } catch (e) {
-                console.error("랭킹 로드 실패:", e);
-                return JSON.parse(localStorage.getItem('brick_rank') || "[]");
+                const rankList = data.record.rank || [];
+                renderRankingHTML(containerId, rankList);
+                return rankList;
+            } catch (error) {
+                console.warn("로컬 랭킹 모드로 동작합니다.", error);
+                const localRank = JSON.parse(localStorage.getItem('brick_rank') || "[]");
+                renderRankingHTML(containerId, localRank);
+                return localRank;
             }
         }
 
-        async function saveRankings(newRank) {
+        async function updateRanking(newRankData) {
             try {
-                if (API_URL.includes("여기에")) {
-                    localStorage.setItem('brick_rank', JSON.stringify(newRank));
+                if (binId.includes("__BIN_ID__")) {
+                    localStorage.setItem('brick_rank', JSON.stringify(newRankData));
                     return;
                 }
                 
-                await fetch(API_URL, {
+                await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                    body: JSON.stringify({ rank: newRank })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': apiKey
+                    },
+                    body: JSON.stringify({ rank: newRankData })
                 });
-            } catch (e) {
-                console.error("랭킹 저장 실패:", e);
+            } catch (error) {
+                console.error("랭킹 업데이트 실패:", error);
             }
         }
 
-        // --- 명예의 전당 랭킹 출력 ---
-        async function renderRanking(containerId) {
+        // 랭킹 리스트 화면에 그리기
+        function renderRankingHTML(containerId, rankList) {
             const container = document.getElementById(containerId);
-            container.innerHTML = `<li style="text-align:center; color:#64748b; padding:10px 0;">글로벌 랭킹 불러오는 중...</li>`;
-            
-            const rank = await fetchRankings();
-            
             let html = "";
-            if (rank.length === 0) {
+            if (!rankList || rankList.length === 0) {
                 html = `<li style="text-align:center; color:#64748b; padding:10px 0;">첫 도전자가 되어보세요!</li>`;
             } else {
-                rank.forEach((r, i) => {
+                html = `<div class="ranking-title">🏆 글로벌 명예의 전당 (Top 5)</div><ul class="ranking-list">`;
+                rankList.forEach((r, i) => {
                     const isTop = i === 0;
+                    const isMyCurrent = (r.name === name && r.score === score && score > 0);
+                    let rowStyle = "";
+                    if (isTop) rowStyle = "background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2);";
+                    if (isMyCurrent) rowStyle += " border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.1);";
+
                     html += `
-                        <li class="ranking-item ${isTop ? 'top-record' : ''}">
-                            <span>${i + 1}. ${r.name}</span>
+                        <li class="ranking-item" style="${rowStyle}">
+                            <span>${i + 1}. ${r.name} ${isMyCurrent ? '(MY)' : ''}</span>
                             <span style="font-weight:bold; color: ${isTop ? '#f59e0b' : '#3b82f6'};">${r.score}점</span>
                         </li>
                     `;
                 });
+                html += `</ul>`;
             }
             container.innerHTML = html;
         }
@@ -598,10 +623,10 @@
         function handleShowMenu() {
             document.getElementById('overModal').style.display = 'none';
             document.getElementById('startModal').style.display = 'flex';
-            renderRanking('ranking-list');
+            fetchRanking('ranking-area'); // 메뉴로 돌아올 때 최신 랭킹 로드
         }
 
-        function triggerGameOver() {
+        async function triggerGameOver() {
             isRunning = false;
             playSound('gameover');
 
@@ -611,37 +636,28 @@
                 localStorage.setItem('brick_best', best);
                 document.getElementById('best').innerText = best;
             }
-
-            // 모달 표시 데이터 가공
+            
             document.getElementById('finalScore').innerText = score;
-            document.getElementById('over-ranking-area').innerHTML = "<div style='text-align:center; color:#64748b; margin-top:10px;'>글로벌 랭킹 업데이트 중...</div>";
             document.getElementById('overModal').style.display = 'flex';
 
-            // 비동기로 글로벌 랭킹 로드, 업데이트 및 저장
-            (async () => {
-                let rank = await fetchRankings();
-                rank.push({ name, score });
-                rank.sort((a, b) => b.score - a.score);
-                rank = rank.slice(0, 5); // 상위 5명
-                await saveRankings(rank);
+            // 버튼 비활성화 (저장 중 중복 클릭 방지)
+            const restartBtn = document.getElementById('restartBtn');
+            restartBtn.innerText = "랭킹 기록 중...";
+            restartBtn.disabled = true;
 
-                // 오버 랭킹뷰 빌드
-                let overRankHtml = `
-                    <div class="ranking-title">🏆 명예의 전당 (Top 5)</div>
-                    <ul class="ranking-list">
-                `;
-                rank.forEach((r, i) => {
-                    const isMyCurrent = (r.name === name && r.score === score);
-                    overRankHtml += `
-                        <li class="ranking-item" style="${isMyCurrent ? 'border: 1px dashed #ef4444; background: rgba(239, 68, 68, 0.1);' : ''}">
-                            <span>${i + 1}. ${r.name} ${isMyCurrent ? '(MY)' : ''}</span>
-                            <span style="font-weight:bold; color:#f59e0b;">${r.score}점</span>
-                        </li>
-                    `;
-                });
-                overRankHtml += '</ul>';
-                document.getElementById('over-ranking-area').innerHTML = overRankHtml;
-            })();
+            // 글로벌 랭킹 로드 및 가공 후 저장
+            let rankList = await fetchRanking('over-ranking-area');
+            rankList.push({ name, score });
+            rankList.sort((a, b) => b.score - a.score);
+            rankList = rankList.slice(0, 5); // 상위 5명 유지
+            
+            // 새로운 랭킹을 다시 렌더링하고 서버에 저장
+            renderRankingHTML('over-ranking-area', rankList);
+            await updateRanking(rankList);
+
+            // 버튼 다시 활성화
+            restartBtn.innerText = "다시 플레이";
+            restartBtn.disabled = false;
         }
 
         // --- 핵심 프레임 루프 (렌더링 & 연산) ---
@@ -855,9 +871,9 @@
             requestAnimationFrame(update);
         }
 
-        // 초기 시작 페이지 랭킹 세팅
+        // 초기 시작 페이지 글로벌 랭킹 세팅
         window.addEventListener('DOMContentLoaded', () => {
-            renderRanking('ranking-list');
+            fetchRanking('ranking-area');
         });
     </script>
 </body>
